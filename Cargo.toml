@@ -19,3 +19,6 @@ dev = ["bevy/dynamic_linking"]
 [target.'cfg(all(target_family = "wasm", any(target_os = "unknown", target_os = "none")))'.dependencies]
 getrandom_02 = { version = "^0.2", features = ["js"], package = "getrandom" }
 getrandom_03 = { version = "^0.3", features = ["wasm_js"], package = "getrandom" }
+
+[package.metadata.bevy_cli.web]
+features = ["bevy/webgpu"]
