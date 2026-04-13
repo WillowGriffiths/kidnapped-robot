@@ -4,5 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18.0", features = ["debug", "dev"] }
-rand = "0.10.0"
+bevy = { version = "0.18", default-features = false, features = [
+    "2d",               # Core 2D profile: rendering, Camera2d, gizmos, transforms, etc.
+    "bevy_dev_tools",   # FpsOverlayPlugin lives here
+    "bevy_log",         # info! macro
+] }
+bevy_rapier2d = { git = "https://github.com/dimforge/bevy_rapier.git", rev = "394e56d", features = ["debug-render-2d"] }
+rand = "0.8.4"
+statrs = "0.18.0"
+
+[features]
+dev = ["bevy/dynamic_linking"]
