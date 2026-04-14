@@ -3,6 +3,7 @@ use std::{f32::consts::PI, time::Duration};
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     prelude::*,
+    sprite::Anchor,
     text::FontSmoothing,
 };
 use bevy_rapier2d::{na::ComplexField, prelude::*};
@@ -43,6 +44,7 @@ fn main() {
         ))
         .add_systems(Startup, startup)
         .add_systems(Update, draw_particles)
+        .add_systems(Update, draw_timer)
         .add_systems(FixedUpdate, update_particles)
         .add_systems(FixedUpdate, update_robot)
         .add_systems(FixedUpdate, do_raycast)
@@ -66,6 +68,9 @@ struct RaycastTimer(Timer);
 
 #[derive(Component)]
 struct LastRaycast(f32);
+
+#[derive(Component)]
+struct TimerText;
 
 #[derive(Resource)]
 struct Noise {
@@ -101,8 +106,16 @@ fn startup(mut commands: Commands) {
         .spawn(RigidBody::Fixed)
         .insert(Collider::cuboid(100.0, 100.0))
         .insert(
-            Transform::from_xyz(100.0, 300.0, 0.0)
+            Transform::from_xyz(100.0, 250.0, 0.0)
                 * Transform::from_rotation(Quat::from_rotation_z(1.0)),
+        );
+
+    commands
+        .spawn(RigidBody::Fixed)
+        .insert(Collider::ball(40.0))
+        .insert(
+            Transform::from_xyz(-100.0, -100.0, 0.0)
+                * Transform::from_rotation(Quat::from_rotation_z(2.0)),
         );
 
     commands
@@ -143,6 +156,13 @@ fn startup(mut commands: Commands) {
 
     commands.spawn(Camera2d);
 
+    commands
+        .spawn(Text2d::new(""))
+        .insert(TimerText)
+        .insert(TextLayout::new_with_justify(Justify::Left))
+        .insert(Anchor::TOP_LEFT)
+        .insert(Transform::from_xyz(-480.0, 410.0, 0.0));
+
     commands.insert_resource(Noise {
         velocity: distribution::Normal::new(1.0, 0.3).unwrap(),
         rotation: distribution::Normal::new(1.0, 0.3).unwrap(),
@@ -158,6 +178,14 @@ fn draw_particles(mut gizmos: Gizmos, particles: Single<&Particles>) {
             Color::oklch(0.9, 0.0, 0.0),
         );
     }
+}
+
+fn draw_timer(
+    robot: Single<&mut RaycastTimer, With<Robot>>,
+    mut text: Single<&mut Text2d, With<TimerText>>,
+) {
+    let time = robot.0.remaining_secs();
+    text.0 = format!("Time to raycast: {time:.3}");
 }
 
 fn update_particles(
