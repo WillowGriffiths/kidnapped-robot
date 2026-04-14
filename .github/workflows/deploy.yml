@@ -70,7 +70,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: target/bevy_web/
+          path: target/bevy_web/web-release/kidnapped_robot
 
   deploy:
     needs: build
