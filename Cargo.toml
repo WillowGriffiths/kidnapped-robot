@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.18", default-features = false, features = [
+    "experimental_bevy_ui_widgets",
     "2d",               # Core 2D profile: rendering, Camera2d, gizmos, transforms, etc.
     "bevy_dev_tools",   # FpsOverlayPlugin lives here
     "bevy_log",         # info! macro

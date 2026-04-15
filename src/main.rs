@@ -6,7 +6,7 @@ use bevy::{
     sprite::Anchor,
     text::FontSmoothing,
 };
-use bevy_rapier2d::{na::ComplexField, prelude::*};
+use bevy_rapier2d::{prelude::*};
 use rand::prelude::Distribution;
 use statrs::distribution;
 
@@ -79,12 +79,8 @@ struct Noise {
     artificial: distribution::Normal,
 }
 
-#[derive(Resource)]
-struct WeightDisplay(Vec<f32>);
-
 const PARTICLE_COUNT: usize = 10_000;
 const START_ROTATION: f32 = PI / 2.0;
-const WEIGHT_DISPLAY_RESOLUTION: usize = 100;
 
 // Standard deviation for the observation likelihood (in world units).
 // Tune this to control how sharply the filter penalises distance error.
@@ -166,7 +162,7 @@ fn startup(mut commands: Commands) {
     commands.insert_resource(Noise {
         velocity: distribution::Normal::new(1.0, 0.3).unwrap(),
         rotation: distribution::Normal::new(1.0, 0.3).unwrap(),
-        artificial: distribution::Normal::new(1.0, 1.0).unwrap(),
+        artificial: distribution::Normal::new(1.0, 3.0).unwrap(),
     });
 }
 
