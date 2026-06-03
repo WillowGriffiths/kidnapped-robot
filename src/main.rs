@@ -6,7 +6,7 @@ use bevy::{
     sprite::Anchor,
     text::FontSmoothing,
 };
-use bevy_rapier2d::{prelude::*};
+use bevy_rapier2d::{parry::shape::Ball, prelude::*, rapier::prelude::ColliderShape};
 use rand::prelude::Distribution;
 use statrs::distribution;
 
@@ -43,8 +43,10 @@ fn main() {
             RapierDebugRenderPlugin::default(),
         ))
         .add_systems(Startup, startup)
+        .add_systems(Update, toggle_particles)
         .add_systems(Update, draw_particles)
         .add_systems(Update, draw_timer)
+        .add_systems(Update, kidnap_robot)
         .add_systems(FixedUpdate, update_particles)
         .add_systems(FixedUpdate, update_robot)
         .add_systems(FixedUpdate, do_raycast)
@@ -76,8 +78,12 @@ struct TimerText;
 struct Noise {
     velocity: distribution::Normal,
     rotation: distribution::Normal,
-    artificial: distribution::Normal,
+    artificial_vel: distribution::Normal,
+    artificial_rot: distribution::Normal,
 }
+
+#[derive(Resource)]
+struct DrawParticles(bool);
 
 const PARTICLE_COUNT: usize = 10_000;
 const START_ROTATION: f32 = PI / 2.0;
@@ -162,26 +168,45 @@ fn startup(mut commands: Commands) {
     commands.insert_resource(Noise {
         velocity: distribution::Normal::new(1.0, 0.3).unwrap(),
         rotation: distribution::Normal::new(1.0, 0.3).unwrap(),
-        artificial: distribution::Normal::new(1.0, 3.0).unwrap(),
+        artificial_vel: distribution::Normal::new(1.0, 1.0).unwrap(),
+        artificial_rot: distribution::Normal::new(1.0, 0.5).unwrap(),
     });
+
+    commands.insert_resource(DrawParticles(false));
 }
 
-fn draw_particles(mut gizmos: Gizmos, particles: Single<&Particles>) {
+fn toggle_particles(keys: Res<ButtonInput<KeyCode>>, mut draw_particles: ResMut<DrawParticles>) {
+    if keys.just_pressed(KeyCode::Space) {
+        draw_particles.0 = !draw_particles.0;
+    }
+}
+
+fn draw_particles(
+    mut gizmos: Gizmos,
+    draw_particles: Res<DrawParticles>,
+    particles: Single<&Particles>,
+) {
+    if !draw_particles.0 {
+        return;
+    }
+
     for Particle(pos, _t) in &particles.0 {
         gizmos.circle_2d(
             Isometry2d::from_translation(*pos),
             0.5,
-            Color::oklch(0.9, 0.0, 0.0),
+            Color::oklch(0.9, 0.0, 0.0).with_alpha(0.5),
         );
     }
 }
 
 fn draw_timer(
-    robot: Single<&mut RaycastTimer, With<Robot>>,
+    robot: Single<(&mut RaycastTimer, &LastRaycast), With<Robot>>,
     mut text: Single<&mut Text2d, With<TimerText>>,
 ) {
-    let time = robot.0.remaining_secs();
-    text.0 = format!("Time to raycast: {time:.3}");
+    let (timer, last_raycast) = robot.into_inner();
+    let time = timer.0.remaining_secs();
+    let dist = last_raycast.0;
+    text.0 = format!("Time to raycast: {time:.3}\nLast raycast: {dist:.3}");
 }
 
 fn update_particles(
@@ -192,11 +217,11 @@ fn update_particles(
 ) {
     let mut rng = rand::thread_rng();
     for particle in &mut particles.0 {
-        particle.1 += robot.1 * time.delta_secs();
+        particle.1 += robot.1 * time.delta_secs() * noise.artificial_rot.sample(&mut rng) as f32;
         particle.0 += Vec2::from_angle(particle.1)
             * robot.0
             * time.delta_secs()
-            * noise.artificial.sample(&mut rng) as f32;
+            * noise.artificial_vel.sample(&mut rng) as f32;
     }
 }
 
@@ -236,6 +261,36 @@ fn update_robot(
 
     velocity.linvel = direction * vel_noise;
     velocity.angvel = target_velocity.1 * rot_noise;
+}
+
+fn kidnap_robot(
+    keys: Res<ButtonInput<KeyCode>>,
+    ctx: ReadRapierContext,
+    mut robot: Single<&mut Transform, With<Robot>>,
+) {
+    if !keys.just_pressed(KeyCode::KeyK) {
+        return;
+    }
+
+    let ctx = ctx.single().unwrap();
+
+    robot.translation = loop {
+        let pos = (vec2(rand::random::<f32>(), rand::random::<f32>()) - vec2(0.5, 0.5)) * 1000.0;
+        let shape = Ball::new(50.0);
+
+        let mut intersects = false;
+        ctx.intersect_shape(pos, 0.0, &shape, QueryFilter::only_fixed(), |_entity| {
+            intersects = true;
+
+            false
+        });
+
+        if !intersects {
+            break vec3(pos.x, pos.y, 0.0);
+        }
+    };
+
+    robot.rotation = Quat::from_rotation_z(rand::random::<f32>() * 2.0 * PI);
 }
 
 fn observation_likelihood(measured: f32, expected: f32) -> f32 {
